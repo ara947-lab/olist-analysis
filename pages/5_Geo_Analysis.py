@@ -22,7 +22,8 @@ def load_geo_data():
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     data_dir = os.path.join(base_dir, "data")
 
-    df_geo = pd.read_csv(
+    # ✅ 이미 전처리된 geo 데이터 (zip_code_prefix, lat, lng, state 존재)
+    geo_avg = pd.read_csv(
         os.path.join(data_dir, "geo_preprocessed.csv"),
         encoding="latin-1",
         encoding_errors="replace"
@@ -40,18 +41,7 @@ def load_geo_data():
         encoding_errors="replace"
     )
 
-    geo_avg = (
-        df_geo
-        .groupby("geolocation_zip_code_prefix")
-        .agg(
-            lat=("geolocation_lat", "mean"),
-            lng=("geolocation_lng", "mean"),
-            state=("geolocation_state", "first")
-        )
-        .reset_index()
-        .rename(columns={"geolocation_zip_code_prefix": "zip_code_prefix"})
-    )
-
+    # 🔑 핵심: groupby 절대 하지 않는다
     sellers_geo = df_sellers.merge(
         geo_avg,
         left_on="seller_zip_code_prefix",
@@ -71,13 +61,16 @@ def load_geo_data():
 
 sellers_geo, customers_geo = load_geo_data()
 
-# =========================================================================
-# 페이지 콘텐츠
-# =========================================================================
+# -------------------------
+# Guard
+# -------------------------
 if sellers_geo is None or customers_geo is None:
     st.error("❌ 지리 분석 데이터를 로드할 수 없습니다.")
     st.stop()
 
+# -------------------------
+# Title
+# -------------------------
 st.title("🗺️ 판매자/구매자 지리 분석")
 st.caption("브라질 내 판매자와 구매자의 지역 분포 현황")
 
@@ -138,12 +131,7 @@ customer_sample = customer_valid.sample(
 if map_type == "판매자 히트맵":
     st.subheader("판매자 분포 히트맵")
 
-    m = folium.Map(
-        location=brazil_center,
-        zoom_start=4,
-        tiles="cartodbpositron"
-    )
-
+    m = folium.Map(location=brazil_center, zoom_start=4, tiles="cartodbpositron")
     HeatMap(
         seller_sample[["lat", "lng"]].values.tolist(),
         radius=10,
@@ -155,12 +143,7 @@ if map_type == "판매자 히트맵":
 elif map_type == "구매자 히트맵":
     st.subheader("구매자 분포 히트맵")
 
-    m = folium.Map(
-        location=brazil_center,
-        zoom_start=4,
-        tiles="cartodbpositron"
-    )
-
+    m = folium.Map(location=brazil_center, zoom_start=4, tiles="cartodbpositron")
     HeatMap(
         customer_sample[["lat", "lng"]].values.tolist(),
         radius=8,
@@ -172,11 +155,7 @@ elif map_type == "구매자 히트맵":
 else:
     st.subheader("판매자 vs 구매자 분포 비교")
 
-    m = folium.Map(
-        location=brazil_center,
-        zoom_start=4,
-        tiles="cartodbpositron"
-    )
+    m = folium.Map(location=brazil_center, zoom_start=4, tiles="cartodbpositron")
 
     HeatMap(
         seller_sample[["lat", "lng"]].values.tolist(),
@@ -186,7 +165,6 @@ else:
     ).add_to(m)
 
     customer_cluster = MarkerCluster(name="구매자 위치")
-
     for _, row in customer_sample.iterrows():
         folium.CircleMarker(
             location=[row["lat"], row["lng"]],
@@ -197,7 +175,6 @@ else:
         ).add_to(customer_cluster)
 
     customer_cluster.add_to(m)
-
     components.html(m._repr_html_(), height=600)
 
 st.divider()
