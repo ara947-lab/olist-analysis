@@ -23,11 +23,11 @@ def load_geo_data():
     data_dir = os.path.join(base_dir, "data")
 
     # 1. ?ë³¸(58MB) ?€???°ë¦¬ê°€ ë§Œë“  ê°€ë²¼ìš´ ?„ì²˜ë¦??Œì¼(1MB)??ë¶ˆëŸ¬?µë‹ˆ??
-    geo_avg = pd.read_csv(os.path.join(data_dir, "geo_preprocessed.csv"))
+    geo_avg = pd.read_csv(os.path.join(data_dir, "geo_preprocessed.csv"), encoding="utf-8")
     
     # 2. ?ë§¤??ë°?êµ¬ë§¤???°ì´??ë¡œë“œ
-    df_sellers = pd.read_csv(os.path.join(data_dir, "olist_sellers_dataset.csv"))
-    df_customers = pd.read_csv(os.path.join(data_dir, "olist_customers_dataset.csv"))
+    df_sellers = pd.read_csv(os.path.join(data_dir, "olist_sellers_dataset.csv"), encoding="utf-8")
+    df_customers = pd.read_csv(os.path.join(data_dir, "olist_customers_dataset.csv"), encoding="utf-8")
 
     # 3. ?´ë? ?„ì²˜ë¦¬ê? ?˜ì–´ ?ˆìœ¼ë¯€ë¡?groupby ê³¼ì • ?†ì´ ë°”ë¡œ ë³‘í•©(merge)?©ë‹ˆ??
     sellers_geo = df_sellers.merge(
