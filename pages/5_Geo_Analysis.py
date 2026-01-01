@@ -5,6 +5,10 @@ import folium
 from folium.plugins import HeatMap, MarkerCluster
 import streamlit.components.v1 as components
 
+# =========================
+# Cache Clear (단독 실행)
+# =========================
+st.cache_data.clear()
 
 # =========================
 # Page Config
@@ -22,31 +26,33 @@ def load_geo_data():
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     data_dir = os.path.join(base_dir, "data")
 
-    df_geo = pd.read_csv(os.path.join(data_dir, "olist_geolocation_dataset.csv"))
-    df_sellers = pd.read_csv(os.path.join(data_dir, "olist_sellers_dataset.csv"))
-    df_customers = pd.read_csv(os.path.join(data_dir, "olist_customers_dataset.csv"))
-
-    geo_avg = (
-        df_geo
-        .groupby("geolocation_zip_code_prefix")
-        .agg(
-            lat=("geolocation_lat", "mean"),
-            lng=("geolocation_lng", "mean"),
-            state=("geolocation_state", "first")
-        )
-        .reset_index()
-        .rename(columns={"geolocation_zip_code_prefix": "zip_code_prefix"})
+    geo = pd.read_csv(
+        os.path.join(data_dir, "geo_preprocessed.csv"),
+        encoding="latin-1",
+        encoding_errors="replace"
     )
 
-    sellers_geo = df_sellers.merge(
-        geo_avg,
+    sellers = pd.read_csv(
+        os.path.join(data_dir, "olist_sellers_dataset.csv"),
+        encoding="latin-1",
+        encoding_errors="replace"
+    )
+
+    customers = pd.read_csv(
+        os.path.join(data_dir, "olist_customers_dataset.csv"),
+        encoding="latin-1",
+        encoding_errors="replace"
+    )
+
+    sellers_geo = sellers.merge(
+        geo,
         left_on="seller_zip_code_prefix",
         right_on="zip_code_prefix",
         how="left"
     )
 
-    customers_geo = df_customers.merge(
-        geo_avg,
+    customers_geo = customers.merge(
+        geo,
         left_on="customer_zip_code_prefix",
         right_on="zip_code_prefix",
         how="left"
@@ -75,10 +81,7 @@ map_type = st.sidebar.radio(
 
 sample_size = st.sidebar.slider(
     "샘플 크기",
-    min_value=1000,
-    max_value=10000,
-    value=5000,
-    step=1000
+    1000, 10000, 5000, 1000
 )
 
 # =========================
@@ -103,13 +106,10 @@ brazil_center = [-14, -53.25]
 seller_valid = sellers_geo.dropna(subset=["lat", "lng"])
 customer_valid = customers_geo.dropna(subset=["lat", "lng"])
 
-
 def safe_sample(df, n, random_state=42):
-    """Streamlit Cloud 안전 샘플링"""
     if len(df) == 0:
         return df
     return df.sample(n=min(n, len(df)), random_state=random_state)
-
 
 seller_sample = safe_sample(seller_valid, sample_size)
 customer_sample = safe_sample(customer_valid, sample_size)
@@ -117,48 +117,28 @@ customer_sample = safe_sample(customer_valid, sample_size)
 # =========================
 # Map Render
 # =========================
-m = folium.Map(
-    location=brazil_center,
-    zoom_start=4,
-    tiles="cartodbpositron"
-)
+m = folium.Map(location=brazil_center, zoom_start=4, tiles="cartodbpositron")
 
-if map_type == "판매자 히트맵":
-    if len(seller_sample) > 0:
-        HeatMap(
-            seller_sample[["lat", "lng"]].values.tolist(),
-            radius=10,
-            blur=15
-        ).add_to(m)
-    else:
-        st.warning("판매자 좌표 데이터가 없습니다.")
+if map_type == "판매자 히트맵" and len(seller_sample) > 0:
+    HeatMap(seller_sample[["lat", "lng"]].values.tolist(), radius=10, blur=15).add_to(m)
 
-elif map_type == "구매자 히트맵":
-    if len(customer_sample) > 0:
-        HeatMap(
-            customer_sample[["lat", "lng"]].values.tolist(),
-            radius=8,
-            blur=12
-        ).add_to(m)
-    else:
-        st.warning("구매자 좌표 데이터가 없습니다.")
+elif map_type == "구매자 히트맵" and len(customer_sample) > 0:
+    HeatMap(customer_sample[["lat", "lng"]].values.tolist(), radius=8, blur=12).add_to(m)
 
 else:
-    # 판매자 히트맵
     if len(seller_sample) > 0:
         HeatMap(
             seller_sample[["lat", "lng"]].values.tolist(),
             radius=10,
             blur=15,
-            name="판매자 히트맵"
+            name="판매자"
         ).add_to(m)
 
-    # 구매자 마커 클러스터
     if len(customer_sample) > 0:
-        cluster = MarkerCluster(name="구매자 위치")
-        for _, row in customer_sample.iterrows():
+        cluster = MarkerCluster(name="구매자")
+        for _, r in customer_sample.iterrows():
             folium.CircleMarker(
-                location=[row["lat"], row["lng"]],
+                location=[r["lat"], r["lng"]],
                 radius=3,
                 color="blue",
                 fill=True,
@@ -169,8 +149,6 @@ else:
     folium.LayerControl().add_to(m)
 
 components.html(m._repr_html_(), height=600)
-
-st.divider()
 
 # =========================
 # State Table
@@ -188,14 +166,9 @@ state_df = (
     .fillna(0)
 )
 
-state_df["비율(%)"] = (
-    state_df["판매자수"] / state_df["구매자수"] * 100
-).round(2)
+state_df["비율(%)"] = (state_df["판매자수"] / state_df["구매자수"] * 100).round(2)
 
-st.dataframe(
-    state_df.sort_values("구매자수", ascending=False).head(10),
-    use_container_width=True
-)
+st.dataframe(state_df.sort_values("구매자수", ascending=False).head(10), use_container_width=True)
 
 # =========================
 # Insight
@@ -205,14 +178,14 @@ st.subheader("💡 핵심 인사이트")
 top3_seller = sellers_geo["state"].value_counts().head(3)
 top3_customer = customers_geo["state"].value_counts().head(3)
 
-seller_concentration = top3_seller.sum() / len(sellers_geo) * 100
-customer_concentration = top3_customer.sum() / len(customers_geo) * 100
+seller_conc = top3_seller.sum() / len(sellers_geo) * 100
+customer_conc = top3_customer.sum() / len(customers_geo) * 100
 
 st.write(f"""
-- **판매자 집중도**: 상위 3개 주에 {seller_concentration:.1f}% 집중  
-- **구매자 집중도**: 상위 3개 주에 {customer_concentration:.1f}% 집중  
-- **차이**: 판매자가 구매자보다 {seller_concentration - customer_concentration:.1f}%p 더 집중됨
+- **판매자 집중도**: 상위 3개 주에 {seller_conc:.1f}%  
+- **구매자 집중도**: 상위 3개 주에 {customer_conc:.1f}%  
+- **차이**: 판매자가 {seller_conc - customer_conc:.1f}%p 더 집중
 """)
 
-if seller_concentration > customer_concentration + 10:
-    st.warning("⚠️ 판매자가 특정 지역에 과도하게 집중 → 배송 지연 리스크 가능")
+if seller_conc > customer_conc + 10:
+    st.warning("⚠️ 판매자 지역 집중 → 배송 지연 리스크 가능")
