@@ -22,22 +22,14 @@ def load_geo_data():
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     data_dir = os.path.join(base_dir, "data")
 
-    df_geo = pd.read_csv(os.path.join(data_dir, "olist_geolocation_dataset.csv"))
+    # 1. 원본(58MB) 대신 우리가 만든 가벼운 전처리 파일(1MB)을 불러옵니다.
+    geo_avg = pd.read_csv(os.path.join(data_dir, "geo_preprocessed.csv"))
+    
+    # 2. 판매자 및 구매자 데이터 로드
     df_sellers = pd.read_csv(os.path.join(data_dir, "olist_sellers_dataset.csv"))
     df_customers = pd.read_csv(os.path.join(data_dir, "olist_customers_dataset.csv"))
 
-    geo_avg = (
-        df_geo
-        .groupby("geolocation_zip_code_prefix")
-        .agg(
-            lat=("geolocation_lat", "mean"),
-            lng=("geolocation_lng", "mean"),
-            state=("geolocation_state", "first")
-        )
-        .reset_index()
-        .rename(columns={"geolocation_zip_code_prefix": "zip_code_prefix"})
-    )
-
+    # 3. 이미 전처리가 되어 있으므로 groupby 과정 없이 바로 병합(merge)합니다.
     sellers_geo = df_sellers.merge(
         geo_avg,
         left_on="seller_zip_code_prefix",
@@ -53,7 +45,6 @@ def load_geo_data():
     )
 
     return sellers_geo, customers_geo
-
 
 sellers_geo, customers_geo = load_geo_data()
 
