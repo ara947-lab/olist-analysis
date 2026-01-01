@@ -1,0 +1,10 @@
+# 원본 대용량 파일 제외
+data/olist_geolocation_dataset.csv
+data/olist_order_items_dataset.csv
+data/olist_order_payments_dataset.csv
+data/olist_order_reviews_dataset.csv
+
+# 파이썬 가상환경 및 캐시 제외
+.venv/
+__pycache__/
+.ipynb_checkpoints/
