@@ -22,17 +22,18 @@ def load_geo_data():
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     data_dir = os.path.join(base_dir, "data")
 
-    # 🔑 핵심 수정: encoding + encoding_errors
     df_geo = pd.read_csv(
         os.path.join(data_dir, "geo_preprocessed.csv"),
         encoding="latin-1",
         encoding_errors="replace"
     )
+
     df_sellers = pd.read_csv(
         os.path.join(data_dir, "olist_sellers_dataset.csv"),
         encoding="latin-1",
         encoding_errors="replace"
     )
+
     df_customers = pd.read_csv(
         os.path.join(data_dir, "olist_customers_dataset.csv"),
         encoding="latin-1",
